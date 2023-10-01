@@ -3,11 +3,9 @@ import os
 import time
 from typing import Mapping
 
-import chassis.guides as guides
 from chassis.builder import DockerBuilder
 from chassisml import ChassisModel
 from sentence_transformers import SentenceTransformer
-from torch import Tensor
 
 
 def to_model_path(model_name: str) -> str:
@@ -21,27 +19,23 @@ def load_model(model_name: str) -> SentenceTransformer:
         model.save(to_model_path(model_name))
     else:
         model = SentenceTransformer(to_model_path(model_name))
-
     return model
 
 
 default_model = "paraphrase-TinyBERT-L6-v2"
 model = load_model(default_model)
 
-print("Model loaded")
 
-
-def process(input_bytes: Mapping[str, str]) -> dict[str, bytes]:
-    text = input_bytes["input"]
-    encoded = model.encode([text])[0].tolist()
-
-    return {"results": json.dumps({"encoded": encoded}).encode()}
+def process(data: Mapping[str, str]) -> dict[str, bytes]:
+    embedding = model.encode([data["input"]])[0]
+    dumped = json.dumps(embedding.tolist())
+    return {"embedding": dumped.encode()}
 
 
 # create chassis model object, add required dependencies, and define metadata
 chassis_model = ChassisModel(process_fn=process)
 chassis_model.add_requirements(["sentence_transformers"])
-chassis_model.metadata.model_name = "MessageEncoder"
+chassis_model.metadata.model_name = "MessageEmbedder"
 chassis_model.metadata.model_version = "0.0.1"
 chassis_model.metadata.add_input(
     key="input",
@@ -50,20 +44,20 @@ chassis_model.metadata.add_input(
     description="Message to be encoded",
 )
 chassis_model.metadata.add_output(
-    key="results",
+    key="embedding",
     media_type="application/json",
     max_size="1M",
-    description="Encoded message",
+    description="Embedding for message",
 )
 
 # test model
 results = chassis_model.test({"input": "TestInput"})
-print(results)
 
 # build container #
 builder = DockerBuilder(chassis_model)
 start_time = time.time()
-res = builder.build_image(name="message-encoder-model", tag="0.0.1", show_logs=True)
+print("Started at ", time.localtime())
+res = builder.build_image(name="message-embedder-model", tag="0.0.1", show_logs=True)
 end_time = time.time()
 print(res)
-print(f"Container image built in {end_time-start_time} seconds")
+print(f"Container image built in {(end_time-start_time) / 60} minutes")
