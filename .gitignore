@@ -1,2 +1,4 @@
 venv/
-llm-container/models
+llm-server/models
+
+**/__pycache__/
