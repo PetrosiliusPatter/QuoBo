@@ -1,13 +1,7 @@
 import os
-from dataclasses import dataclass
-from typing import Literal
 
 from sentence_transformers import SentenceTransformer
-
-
-@dataclass
-class ProcessedResponse:
-    embeddings: list[float]
+from torch import Tensor
 
 
 def to_model_path(model_name: str) -> str:
@@ -30,13 +24,9 @@ model = load_model(default_model)
 
 
 # define process function that will serve as our inference function
-def process(input_bytes: bytes) -> ProcessedResponse:
-    embeddings = model.encode([input_bytes])
-    results = {"data": {"embeddings": {default_model: embeddings}}}
-
-    print(results)
-    return results
+def process(input_bytes: str) -> Tensor:
+    return model.encode([input_bytes])[0]
 
 
 if __name__ == "__main__":
-    test = process(b"TestInput")
+    test = process("TestInput")
