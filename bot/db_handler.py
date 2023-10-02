@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import weaviate
-from utils import datetime_to_weaviate_timestamp
+from utils import datetime_to_rfc3339
 
 
 @dataclass
@@ -177,7 +177,7 @@ class WeaviateHandler:
             uuid=uuid,
             class_name="Quote",
             data_object={
-                "last_quoted": datetime_to_weaviate_timestamp(datetime.now()),
+                "last_quoted": datetime_to_rfc3339(datetime.now()),
             },
         )
 

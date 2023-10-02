@@ -7,10 +7,10 @@ from telegram import Update
 from telegram.error import TelegramError
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 from utils import (
-    datetime_to_weaviate_timestamp,
+    datetime_to_rfc3339,
     get_message_url,
+    rfc3339_to_datetime,
     sanitize_markdown,
-    weaviate_timestamp_to_datetime,
 )
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -103,8 +103,8 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_id=quote_message.message_id,
         quote_text=quote_text,
         account_id=quote_poster_uid,
-        post_date=datetime_to_weaviate_timestamp(quote_message.date),
-        last_quoted=datetime_to_weaviate_timestamp(quote_message.date),
+        post_date=datetime_to_rfc3339(quote_message.date),
+        last_quoted=datetime_to_rfc3339(quote_message.date),
     )
     db_client.save_quote(new_quote)
 
@@ -170,7 +170,7 @@ async def embarrass(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
     message_url = get_message_url(embarrass_quote.group_id, embarrass_quote.message_id)
-    parsed_post_date = weaviate_timestamp_to_datetime(embarrass_quote.post_date)
+    parsed_post_date = rfc3339_to_datetime(embarrass_quote.post_date)
 
     await context.bot.send_message(
         chat_id=chat_id,
