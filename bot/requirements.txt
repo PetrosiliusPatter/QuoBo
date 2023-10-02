@@ -1,0 +1,4 @@
+python-telegram-bot==20.5
+sentence_transformers==2.2.2
+torch==2.0.1
+weaviate_client==3.24.1
