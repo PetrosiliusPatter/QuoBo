@@ -16,6 +16,8 @@ from utils import (
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEAVIATE_API_KEY = os.environ.get("WEAVIATE_API_KEY")
 
+DEBUG = os.environ.get("DEBUG", False)
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
@@ -59,12 +61,12 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     quote_poster_uid = quote_message.from_user.id
-    """ if quote_poster_uid == update.message.from_user.id:
+    if DEBUG and quote_poster_uid == update.message.from_user.id:
         text = "Quoting yourself? Really?"
         await context.bot.send_message(
             chat_id=chat_id, reply_to_message_id=reply_message, text=text
         )
-        return """
+        return
 
     quote_text: str | None
 
@@ -142,13 +144,13 @@ async def embarrass(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     embarrass_uid = update.message.reply_to_message.from_user.id
-    """ if embarrass_uid == update.message.from_user.id:
+    if DEBUG and embarrass_uid == update.message.from_user.id:
         await context.bot.send_message(
             chat_id=chat_id,
             reply_to_message_id=reply_message,
             text="Why embarrass yourself? Have some self respect.",
         )
-        return """
+        return
 
     embarrass_quote = db_client.pseudo_random_quote_for_user(embarrass_uid)
     if not embarrass_quote:

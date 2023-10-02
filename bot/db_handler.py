@@ -1,7 +1,9 @@
 import json
 import random
+import time
 from dataclasses import dataclass
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import weaviate
 from utils import datetime_to_rfc3339
@@ -120,6 +122,7 @@ class WeaviateHandler:
         self,
         new_quote: Quote,
     ):
+        print("original_last_quoted", new_quote.last_quoted)
         self.client.data_object.create(
             {
                 "group_id": new_quote.group_id,
@@ -132,10 +135,7 @@ class WeaviateHandler:
             "Quote",
         )
 
-    def pseudo_random_quote_for_user(
-        self,
-        account_id: int,
-    ) -> Quote | None:
+    def pseudo_random_quote_for_user(self, account_id: int) -> Quote | None:
         found_quotes = (
             self.client.query.get(
                 "Quote",
@@ -173,11 +173,12 @@ class WeaviateHandler:
 
         selected_quote = Quote(**selected_entry)
 
+        new_timestamp = datetime_to_rfc3339(datetime.now().astimezone())
         self.client.data_object.update(
             uuid=uuid,
             class_name="Quote",
             data_object={
-                "last_quoted": datetime_to_rfc3339(datetime.now()),
+                "last_quoted": new_timestamp,
             },
         )
 

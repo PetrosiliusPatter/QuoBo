@@ -62,7 +62,7 @@ def get_message_url(group_id: int, message_id: int) -> str:
 
 
 def datetime_to_rfc3339(timestamp: datetime) -> str:
-    return timestamp.isoformat("T") + "Z"
+    return timestamp.isoformat("T")
 
 
 def rfc3339_to_datetime(timestamp: str) -> datetime:
