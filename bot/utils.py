@@ -61,5 +61,9 @@ def get_message_url(group_id: int, message_id: int) -> str:
     return f"https://t.me/c/{clean_group_id}/{message_id}"
 
 
-def timestamp_as_rfcc(timestamp: datetime) -> str:
-    return timestamp.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+def datetime_to_weaviate_timestamp(timestamp: datetime) -> str:
+    return timestamp.isoformat("T") + "Z"
+
+
+def weaviate_timestamp_to_datetime(timestamp: str) -> datetime:
+    return datetime.fromisoformat(timestamp)

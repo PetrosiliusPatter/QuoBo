@@ -1,7 +1,10 @@
 import json
+import random
 from dataclasses import dataclass
+from datetime import datetime
 
 import weaviate
+from utils import datetime_to_weaviate_timestamp
 
 
 @dataclass
@@ -110,23 +113,13 @@ class WeaviateHandler:
         if len(found_quotes) == 0:
             return None
 
-        print("found_quotes", found_quotes)
-
-        existing_quote: Quote = Quote(
-            group_id=found_quotes[0]["group_id"],
-            message_id=found_quotes[0]["message_id"],
-            quote_text=found_quotes[0]["quote_text"],
-            account_id=found_quotes[0]["account_id"],
-            post_date=found_quotes[0]["post_date"],
-            last_quoted=found_quotes[0]["last_quoted"],
-        )
+        existing_quote: Quote = Quote(**found_quotes[0])
         return existing_quote
 
     def save_quote(
         self,
         new_quote: Quote,
     ):
-        print("new quote", new_quote)
         self.client.data_object.create(
             {
                 "group_id": new_quote.group_id,
@@ -138,3 +131,54 @@ class WeaviateHandler:
             },
             "Quote",
         )
+
+    def pseudo_random_quote_for_user(
+        self,
+        account_id: int,
+    ) -> Quote | None:
+        found_quotes = (
+            self.client.query.get(
+                "Quote",
+                [
+                    "group_id",
+                    "message_id",
+                    "quote_text",
+                    "account_id",
+                    "post_date",
+                    "last_quoted",
+                ],
+            )
+            .with_where(
+                {
+                    "operator": "Equal",
+                    "path": ["account_id"],
+                    "valueInt": account_id,
+                }
+            )
+            .with_additional(["id"])
+            .do()
+        )["data"]["Get"]["Quote"]
+
+        if len(found_quotes) == 0:
+            return None
+
+        if len(found_quotes) == 1:
+            selected_entry = found_quotes[0]
+        else:
+            max_quote_index = round(0.3 * len(found_quotes))
+            selected_entry = found_quotes[random.randrange(0, max_quote_index)]
+
+        uuid = selected_entry["_additional"]["id"]
+        del selected_entry["_additional"]
+
+        selected_quote = Quote(**selected_entry)
+
+        self.client.data_object.update(
+            uuid=uuid,
+            class_name="Quote",
+            data_object={
+                "last_quoted": datetime_to_weaviate_timestamp(datetime.now()),
+            },
+        )
+
+        return selected_quote
