@@ -1,6 +1,6 @@
 # QuoBo (WIP)
 
-Based on the original [Quote Bot](https://gitlab.com/aDogCalledSpot/telegram-quote-bot) by aDogCalledSpot!
+**Heavily** based on the original [Quote Bot](https://gitlab.com/aDogCalledSpot/telegram-quote-bot) by aDogCalledSpot!
 
 ## About
 
