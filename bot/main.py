@@ -61,7 +61,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     quote_poster_uid = quote_message.from_user.id
-    if DEBUG and quote_poster_uid == update.message.from_user.id:
+    if not DEBUG and quote_poster_uid == update.message.from_user.id:
         text = "Quoting yourself? Really?"
         await context.bot.send_message(
             chat_id=chat_id, reply_to_message_id=reply_message, text=text
@@ -144,7 +144,7 @@ async def embarrass(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     embarrass_uid = update.message.reply_to_message.from_user.id
-    if DEBUG and embarrass_uid == update.message.from_user.id:
+    if not DEBUG and embarrass_uid == update.message.from_user.id:
         await context.bot.send_message(
             chat_id=chat_id,
             reply_to_message_id=reply_message,
