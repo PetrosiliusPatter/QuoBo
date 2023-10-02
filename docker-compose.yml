@@ -23,7 +23,7 @@ services:
       CLUSTER_HOSTNAME: 'node1'
       # Enables API key authentication.
       AUTHENTICATION_APIKEY_ENABLED: 'true'
-      AUTHENTICATION_APIKEY_ALLOWED_KEYS: ${API_KEY}
+      AUTHENTICATION_APIKEY_ALLOWED_KEYS: ${WEAVIATE_API_KEY}
       AUTHENTICATION_APIKEY_USERS: 'admin'
   bot:
     build:
