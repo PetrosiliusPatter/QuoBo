@@ -19,6 +19,17 @@ class Quote:
     last_quoted: str
 
 
+@dataclass
+class QuoteWithId(Quote):
+    id: str
+
+
+def parse_db_res(res) -> QuoteWithId:
+    uuid = res["_additional"]["id"]
+    del res["_additional"]
+    return QuoteWithId(**res, id=uuid)
+
+
 class WeaviateHandler:
     def __init__(self, api_key: str):
         self.client = weaviate.Client(
@@ -78,7 +89,7 @@ class WeaviateHandler:
         }
         self.client.schema.create(schema)
 
-    def find_quote(self, account_id: int, quote_text: str) -> Quote | None:
+    def find_quote(self, account_id: int, quote_text: str) -> QuoteWithId | None:
         found_quotes = (
             self.client.query.get(
                 "Quote",
@@ -108,6 +119,7 @@ class WeaviateHandler:
                     ],
                 }
             )
+            .with_additional(["id"])
             .with_limit(1)
             .do()
         )["data"]["Get"]["Quote"]
@@ -115,14 +127,47 @@ class WeaviateHandler:
         if len(found_quotes) == 0:
             return None
 
-        existing_quote: Quote = Quote(**found_quotes[0])
+        existing_quote = parse_db_res(found_quotes[0])
         return existing_quote
+
+    def find_quote_by_message_id(self, message_id: int) -> QuoteWithId | None:
+        found_quotes = (
+            self.client.query.get(
+                "Quote",
+                [
+                    "group_id",
+                    "message_id",
+                    "quote_text",
+                    "account_id",
+                    "post_date",
+                    "last_quoted",
+                ],
+            )
+            .with_where(
+                {
+                    "path": ["message_id"],
+                    "operator": "Equal",
+                    "valueInt": message_id,
+                },
+            )
+            .with_additional(["id"])
+            .with_limit(1)
+            .do()
+        )["data"]["Get"]["Quote"]
+
+        if len(found_quotes) == 0:
+            return None
+
+        existing_quote = parse_db_res(found_quotes[0])
+        return existing_quote
+
+    def delete_quote_by_id(self, quote_id: str):
+        self.client.data_object.delete(uuid=quote_id, class_name="Quote")
 
     def save_quote(
         self,
         new_quote: Quote,
     ):
-        print("original_last_quoted", new_quote.last_quoted)
         self.client.data_object.create(
             {
                 "group_id": new_quote.group_id,
@@ -135,7 +180,7 @@ class WeaviateHandler:
             "Quote",
         )
 
-    def pseudo_random_quote_for_user(self, account_id: int) -> Quote | None:
+    def pseudo_random_quote_for_user(self, account_id: int) -> QuoteWithId | None:
         found_quotes = (
             self.client.query.get(
                 "Quote",
@@ -168,17 +213,13 @@ class WeaviateHandler:
             max_quote_index = round(0.3 * len(found_quotes))
             selected_entry = found_quotes[random.randrange(0, max_quote_index)]
 
-        uuid = selected_entry["_additional"]["id"]
-        del selected_entry["_additional"]
+        selected_quote = parse_db_res(selected_entry)
 
-        selected_quote = Quote(**selected_entry)
-
-        new_timestamp = datetime_to_rfc3339(datetime.now().astimezone())
         self.client.data_object.update(
-            uuid=uuid,
+            uuid=selected_quote.id,
             class_name="Quote",
             data_object={
-                "last_quoted": new_timestamp,
+                "last_quoted": datetime_to_rfc3339(datetime.now().astimezone()),
             },
         )
 

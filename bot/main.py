@@ -27,7 +27,11 @@ db_client: WeaviateHandler | None
 
 async def post_init(application: Application) -> None:
     await application.bot.set_my_commands(
-        [("quote", "quote stuff"), ("embarrass", "embarrass ppl")]
+        [
+            ("quote", "quote stuff"),
+            ("unquote", "unquote stuff"),
+            ("embarrass", "embarrass ppl"),
+        ]
     )
 
 
@@ -183,6 +187,51 @@ async def embarrass(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 
+async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    quote_message = update.message.reply_to_message
+    reply_message = update.message.message_id
+
+    if not db_client:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            reply_to_message_id=reply_message,
+            text="Database is not connected.",
+        )
+        return
+
+    if not quote_message:
+        context.bot.send_message(
+            chat_id=chat_id,
+            reply_to_message_id=reply_message,
+            text="You need to reply to a quoted message when using /unquote.",
+        )
+        return
+
+    found_quote = db_client.find_quote_by_message_id(quote_message.message_id)
+    if found_quote is None:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            reply_to_message_id=reply_message,
+            text="This message wasn't quoted.",
+        )
+        return
+
+    quote_poster_uid = quote_message.from_user.id
+    if not DEBUG and quote_poster_uid == update.message.from_user.id:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            reply_to_message_id=reply_message,
+            text="Haha! You wish! This will be remembered forever!",
+        )
+        return
+
+    db_client.delete_quote_by_id(found_quote.id)
+    await context.bot.send_message(
+        chat_id=chat_id, reply_to_message_id=reply_message, text="Message deleted."
+    )
+
+
 if __name__ == "__main__":
     db_client = WeaviateHandler(WEAVIATE_API_KEY)
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
@@ -190,6 +239,8 @@ if __name__ == "__main__":
     quote_handler = CommandHandler("quote", quote)
     application.add_handler(quote_handler)
     embarrass_handler = CommandHandler("embarrass", embarrass)
+    application.add_handler(embarrass_handler)
+    embarrass_handler = CommandHandler("unquote", unquote)
     application.add_handler(embarrass_handler)
 
     application.run_polling()
