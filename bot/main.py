@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Callable
 
-from db_handler import Quote, WeaviateHandler
+from db_handler import DBHandler, Quote
 from telegram import Update
 from telegram.error import TelegramError
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
@@ -23,7 +23,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-db_client: WeaviateHandler | None
+db_client: DBHandler | None
 
 
 async def post_init(application: Application) -> None:
@@ -257,7 +257,7 @@ async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == "__main__":
-    db_client = WeaviateHandler(WEAVIATE_API_KEY)
+    db_client = DBHandler(WEAVIATE_API_KEY)
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     quote_handler = CommandHandler("quote", quote)
