@@ -1,11 +1,7 @@
-import json
 import random
-import time
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Any
-from zoneinfo import ZoneInfo
 
 from qdrant_client import QdrantClient, models
 from qdrant_client.conversions.common_types import Record
@@ -49,7 +45,6 @@ class DBHandler:
             (x for x in present_collections.collections if x.name == "Quote"), None
         )
         if quote_collection:
-            print("Found present collections: ", quote_collection)
             return
 
         vector_size = self.text_embedder.model.get_sentence_embedding_dimension()
@@ -59,6 +54,10 @@ class DBHandler:
                 size=vector_size, distance=models.Distance.COSINE, on_disk=True
             ),
         )
+
+    def clear_db(self):
+        self.client.delete_collection(collection_name="Quote")
+        self.setup_schema()
 
     def find_quote(self, account_id: int, quote_text: str) -> QuoteWithId | None:
         found_quote_points = self.client.scroll(
@@ -116,20 +115,23 @@ class DBHandler:
             ),
         )
 
-    def save_quote(
+    def save_quotes(
         self,
-        new_quote: Quote,
+        new_quotes: list[Quote],
     ):
-        quote_embedding = self.text_embedder.embed(new_quote.quote_text)
+        ids = [str(uuid.uuid4()) for _ in new_quotes]
+        payloads = [asdict(x) for x in new_quotes]
+        vectors = [
+            x.tolist()
+            for x in self.text_embedder.embed([x.quote_text for x in new_quotes])
+        ]
         self.client.upsert(
             collection_name="Quote",
-            points=[
-                models.PointStruct(
-                    id=str(uuid.uuid4()),
-                    vector=quote_embedding,
-                    payload={**asdict(new_quote)},
-                ),
-            ],
+            points=models.Batch(
+                ids=ids,
+                payloads=payloads,
+                vectors=vectors,
+            ),
         )
 
     def quote_for_user_by_query(
@@ -145,17 +147,23 @@ class DBHandler:
                         key="account_id",
                         match=models.MatchValue(value=account_id),
                     )
-                ]
+                ],
+                must_not=[
+                    models.FieldCondition(
+                        key="quote_text",
+                        match=models.MatchValue(value=query),
+                    )
+                ],
             ),
             search_params=models.SearchParams(hnsw_ef=128, exact=False),
             query_vector=query_embedding.tolist(),
-            limit=10,
+            limit=5,
         )
 
-        choices = [({"id": x.id, **x.payload}, x.score) for x in found_quote_points]
+        choices = [(x, x.score) for x in found_quote_points]
 
-        # print(f"Found {len(choices)} quotes for query '{query}':")
-        # print("\n".join([str((x[1], x[0]["quote_text"])) for x in choices]))
+        print(f"Found {len(choices)} quotes for query '{query}':")
+        print("\n".join([str((x[0].payload["quote_text"], x[1])) for x in choices]))
 
         return self._choose_quote(choices)
 

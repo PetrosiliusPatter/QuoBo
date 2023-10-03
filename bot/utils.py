@@ -67,3 +67,15 @@ def datetime_to_rfc3339(timestamp: datetime) -> str:
 
 def rfc3339_to_datetime(timestamp: str) -> datetime:
     return datetime.fromisoformat(timestamp)
+
+
+def chunks(lst, chunk_size):
+    for i in range(0, len(lst), chunk_size):
+        yield lst[i : i + chunk_size]
+
+
+def progress_bar(message: str, total: int, current: int) -> str:
+    filled = int(current / total * 10)
+    empty = 10 - filled
+    percentage = int(current / total * 100)
+    return f"{message}\n[{'█' * filled}{'░' * empty}] {percentage}% ({current}/{total})"

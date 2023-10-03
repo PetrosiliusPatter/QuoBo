@@ -1,11 +1,10 @@
-import json
 import logging
 import os
 from typing import Callable
 
+from admin_handler import get_admin_handler
 from db_handler import DBHandler, Quote
 from telegram import Update
-from telegram.error import TelegramError
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 from utils import (
     datetime_to_rfc3339,
@@ -15,14 +14,13 @@ from utils import (
 )
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-
 DEBUG = os.environ.get("DEBUG", False)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-db_client: DBHandler | None
+db_handler: DBHandler | None
 
 
 async def post_init(application: Application) -> None:
@@ -40,7 +38,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quote_message = update.message.reply_to_message
     command_message_id = update.message.message_id
 
-    if not db_client:
+    if not db_handler:
         await context.bot.send_message(
             chat_id=chat_id,
             reply_to_message_id=command_message_id,
@@ -95,7 +93,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    existing_quote = db_client.find_quote(quote_poster_uid, quote_text)
+    existing_quote = db_handler.find_quote(quote_poster_uid, quote_text)
     if existing_quote is not None:
         if existing_quote.message_id == quote_message.message_id:
             text = "This message is already in the database."
@@ -112,7 +110,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         post_date=datetime_to_rfc3339(quote_message.date),
         last_quoted=datetime_to_rfc3339(quote_message.date),
     )
-    db_client.save_quote(new_quote)
+    db_handler.save_quotes([new_quote])
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text="Message saved."
@@ -121,7 +119,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def embarrass_pseudo_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     def quote_picker(account_id: int, _: str):
-        return db_client.pseudo_random_quote_for_user(account_id)
+        return db_handler.pseudo_random_quote_for_user(account_id)
 
     await base_embarrass(update, context, quote_picker)
 
@@ -129,7 +127,7 @@ async def embarrass_pseudo_random(update: Update, context: ContextTypes.DEFAULT_
 async def embarrass_semantic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     def quote_picker(account_id: int, response_to_text: str):
         query = " ".join(context.args) if len(context.args) > 0 else response_to_text
-        return db_client.quote_for_user_by_query(account_id, query)
+        return db_handler.quote_for_user_by_query(account_id, query)
 
     await base_embarrass(update, context, quote_picker)
 
@@ -143,7 +141,7 @@ async def base_embarrass(
     response_to_message = update.message.reply_to_message
     command_message_id = update.message.message_id
 
-    if not db_client:
+    if not db_handler:
         await context.bot.send_message(
             chat_id=chat_id,
             reply_to_message_id=command_message_id,
@@ -176,10 +174,8 @@ async def base_embarrass(
         )
         return
 
-    tilt = response_to_message.text or response_to_message.caption
-    embarrass_quote = quote_picker(
-        embarrass_uid, (response_to_message.text or response_to_message.caption)
-    )
+    quote_text = response_to_message.text or response_to_message.caption
+    embarrass_quote = quote_picker(embarrass_uid, quote_text)
     if not embarrass_quote:
         await context.bot.send_message(
             chat_id=chat_id,
@@ -215,7 +211,7 @@ async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quote_message = update.message.reply_to_message
     command_message_id = update.message.message_id
 
-    if not db_client:
+    if not db_handler:
         await context.bot.send_message(
             chat_id=chat_id,
             reply_to_message_id=command_message_id,
@@ -231,7 +227,7 @@ async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    found_quote = db_client.find_quote_by_message_id(quote_message.message_id)
+    found_quote = db_handler.find_quote_by_message_id(quote_message.message_id)
     if found_quote is None:
         await context.bot.send_message(
             chat_id=chat_id,
@@ -249,18 +245,21 @@ async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    db_client.delete_quote_by_id(found_quote.id)
+    db_handler.delete_quote_by_id(found_quote.id)
     await context.bot.send_message(
         chat_id=chat_id, reply_to_message_id=command_message_id, text="Message deleted."
     )
 
 
 if __name__ == "__main__":
-    db_client = DBHandler()
+    db_handler = DBHandler()
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     quote_handler = CommandHandler("quote", quote)
     application.add_handler(quote_handler)
+
+    unquote_handler = CommandHandler("unquote", unquote)
+    application.add_handler(unquote_handler)
 
     embarrass_handler = CommandHandler("embarrass", embarrass_pseudo_random)
     application.add_handler(embarrass_handler)
@@ -270,7 +269,6 @@ if __name__ == "__main__":
     )
     application.add_handler(embarrass_semantic_handler)
 
-    unquote_handler = CommandHandler("unquote", unquote)
-    application.add_handler(unquote_handler)
+    application.add_handler(get_admin_handler(db_handler=db_handler))
 
     application.run_polling()

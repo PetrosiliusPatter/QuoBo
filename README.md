@@ -16,4 +16,5 @@ Todo
 ```
 BOT_TOKEN=your_bot_token
 DEBUG=true_or_false(defaults to false)
+ADMIN_CHAT_ID=chat_id_for_authorized_admin_stuff
 ```
