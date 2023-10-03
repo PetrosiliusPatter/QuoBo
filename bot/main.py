@@ -305,6 +305,7 @@ async def quotequiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await wait_message.delete()
         return
 
+    poster_link = f'<a href="tg://user?id={selected_member.user.id}">{selected_member.user.first_name}</a>'
     message_url = get_message_url(selected_quote.group_id, selected_quote.message_id)
 
     other_members = [x for x in members_in_chat if x.user.id != selected_member.user.id]
@@ -314,14 +315,22 @@ async def quotequiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     random.shuffle(all_options)
     correct_index = all_options.index(selected_member)
 
+    # Yeah, the following shouldn't be necessary, is just a hacky way to fix the formatting
+    formatted_quote = "\n".join(
+        [
+            "Who would say this?",
+            "",
+            *('"' + selected_quote.quote_text + '"').split("\n"),
+        ]
+    )
     await context.bot.send_poll(
         update.effective_chat.id,
-        f'Who would say this?\n\n"{selected_quote.quote_text}"',
+        formatted_quote,
         [x.user.first_name for x in all_options],
         is_anonymous=False,
         type=Poll.QUIZ,
         correct_option_id=correct_index,
-        explanation=f'<a href="{message_url}">Yeah, {selected_member.user.first_name} actually said this...</a>',
+        explanation=f'Yeah, {poster_link} actually <a href="{message_url}">said this</a>...',
         explanation_parse_mode="HTML",
     )
 
