@@ -15,7 +15,6 @@ from utils import (
 )
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEAVIATE_API_KEY = os.environ.get("WEAVIATE_API_KEY")
 
 DEBUG = os.environ.get("DEBUG", False)
 
@@ -257,7 +256,7 @@ async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == "__main__":
-    db_client = DBHandler(WEAVIATE_API_KEY)
+    db_client = DBHandler()
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     quote_handler = CommandHandler("quote", quote)

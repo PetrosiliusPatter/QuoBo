@@ -5,7 +5,7 @@
 ## About
 
 QuoBo is a Telegram bot that allows you to save quotes from your chats and retrieve them later.  
-Will soon support semantic searching using Weaviate.
+Will soon support semantic searching using QDrant.
 
 ## Usage
 

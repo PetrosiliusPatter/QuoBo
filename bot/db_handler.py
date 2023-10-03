@@ -38,7 +38,7 @@ def distance_to_weight(distance: float) -> float:
 
 
 class DBHandler:
-    def __init__(self, api_key: str):
+    def __init__(self):
         self.client = QdrantClient("localhost", port=6333)
         self.text_embedder = TextEmbedder()
         self.setup_schema()
