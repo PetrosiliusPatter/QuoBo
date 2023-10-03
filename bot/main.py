@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from typing import Callable
 
 from db_handler import Quote, WeaviateHandler
 from telegram import Update
@@ -38,12 +39,12 @@ async def post_init(application: Application) -> None:
 async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
     quote_message = update.message.reply_to_message
-    reply_message = update.message.message_id
+    command_message_id = update.message.message_id
 
     if not db_client:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="Database is not connected.",
         )
         return
@@ -51,7 +52,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not quote_message:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="You need to reply to a message when using /quote.",
         )
         return
@@ -59,7 +60,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if quote_message.from_user.is_bot:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="Bots have nothing interesting to say.",
         )
         return
@@ -68,7 +69,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not DEBUG and quote_poster_uid == update.message.from_user.id:
         text = "Quoting yourself? Really?"
         await context.bot.send_message(
-            chat_id=chat_id, reply_to_message_id=reply_message, text=text
+            chat_id=chat_id, reply_to_message_id=command_message_id, text=text
         )
         return
 
@@ -82,7 +83,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             context.bot.send_message(
                 chat_id=chat_id,
-                reply_to_message_id=reply_message,
+                reply_to_message_id=command_message_id,
                 text="There should be something to quote in the message.",
             )
             return
@@ -90,7 +91,7 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not quote_text:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="There should be something to quote in the message.",
         )
         return
@@ -119,49 +120,72 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def embarrass(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def embarrass_pseudo_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    def quote_picker(account_id: int, _: str):
+        return db_client.pseudo_random_quote_for_user(account_id)
+
+    await base_embarrass(update, context, quote_picker)
+
+
+async def embarrass_semantic(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    def quote_picker(account_id: int, response_to_text: str):
+        query = " ".join(context.args) if len(context.args) > 0 else response_to_text
+        return db_client.quote_for_user_by_query(account_id, query)
+
+    await base_embarrass(update, context, quote_picker)
+
+
+async def base_embarrass(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    quote_picker: Callable[[int, str], Quote],
+):
     chat_id = update.effective_chat.id
-    reply_message = update.message.message_id
+    response_to_message = update.message.reply_to_message
+    command_message_id = update.message.message_id
 
     if not db_client:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="Database is not connected.",
         )
         return
 
-    if not update.message.reply_to_message:
+    if not response_to_message:
         await context.bot.send_message(
             chat_id=chat_id,
             text="You need to reply to a message, so I know who to embarrass.",
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
         )
         return
 
-    if update.message.reply_to_message.from_user.is_bot:
+    if response_to_message.from_user.is_bot:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="Bots don't embarrass themselves.",
         )
         return
 
-    embarrass_uid = update.message.reply_to_message.from_user.id
+    embarrass_uid = response_to_message.from_user.id
     if not DEBUG and embarrass_uid == update.message.from_user.id:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="Why embarrass yourself? Have some self respect.",
         )
         return
 
-    embarrass_quote = db_client.pseudo_random_quote_for_user(embarrass_uid)
+    tilt = response_to_message.text or response_to_message.caption
+    embarrass_quote = quote_picker(
+        embarrass_uid, (response_to_message.text or response_to_message.caption)
+    )
     if not embarrass_quote:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
-            text="This user has not been quoted yet.",
+            reply_to_message_id=command_message_id,
+            text="Could not find a fitting quote.",
         )
         return
 
@@ -180,7 +204,7 @@ async def embarrass(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         chat_id=chat_id,
-        reply_to_message_id=reply_message,
+        reply_to_message_id=command_message_id,
         text=f'"{embarrass_quote.quote_text}"\n    -{mention}, ({parsed_post_date.year}), {chat_title}, <a href="{message_url}">Telegram</a>',
         parse_mode="HTML",
     )
@@ -190,12 +214,12 @@ async def embarrass(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     quote_message = update.message.reply_to_message
-    reply_message = update.message.message_id
+    command_message_id = update.message.message_id
 
     if not db_client:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="Database is not connected.",
         )
         return
@@ -203,7 +227,7 @@ async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not quote_message:
         context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="You need to reply to a quoted message when using /unquote.",
         )
         return
@@ -212,7 +236,7 @@ async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if found_quote is None:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="This message wasn't quoted.",
         )
         return
@@ -221,14 +245,14 @@ async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not DEBUG and quote_poster_uid == update.message.from_user.id:
         await context.bot.send_message(
             chat_id=chat_id,
-            reply_to_message_id=reply_message,
+            reply_to_message_id=command_message_id,
             text="Haha! You wish! This will be remembered forever!",
         )
         return
 
     db_client.delete_quote_by_id(found_quote.id)
     await context.bot.send_message(
-        chat_id=chat_id, reply_to_message_id=reply_message, text="Message deleted."
+        chat_id=chat_id, reply_to_message_id=command_message_id, text="Message deleted."
     )
 
 
@@ -238,9 +262,16 @@ if __name__ == "__main__":
 
     quote_handler = CommandHandler("quote", quote)
     application.add_handler(quote_handler)
-    embarrass_handler = CommandHandler("embarrass", embarrass)
+
+    embarrass_handler = CommandHandler("embarrass", embarrass_pseudo_random)
     application.add_handler(embarrass_handler)
-    embarrass_handler = CommandHandler("unquote", unquote)
-    application.add_handler(embarrass_handler)
+
+    embarrass_semantic_handler = CommandHandler(
+        "embarrass_semantic", embarrass_semantic
+    )
+    application.add_handler(embarrass_semantic_handler)
+
+    unquote_handler = CommandHandler("unquote", unquote)
+    application.add_handler(unquote_handler)
 
     application.run_polling()
