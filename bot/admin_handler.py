@@ -80,7 +80,6 @@ def get_admin_handler(db_handler: DBHandler):
         else:
             await update.message.reply_text("Invalid action. Please try again.")
             return ACTION
-        return ConversationHandler.END
 
     async def receive_dump(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         backup_unconfirmed.clear()
