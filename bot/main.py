@@ -272,7 +272,7 @@ async def quotequiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     wait_message = await context.bot.send_message(
         chat_id=chat_id,
         reply_to_message_id=update.message.message_id,
-        text="Hmmmm lemme ponder...",
+        text="Hmmmm let me think...",
     )
     antispam_quotequiz[chat_id] = now
 
@@ -305,6 +305,8 @@ async def quotequiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await wait_message.delete()
         return
 
+    message_url = get_message_url(selected_quote.group_id, selected_quote.message_id)
+
     other_members = [x for x in members_in_chat if x.user.id != selected_member.user.id]
     other_options = random.sample(other_members, min(9, len(other_members)))
 
@@ -319,6 +321,8 @@ async def quotequiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_anonymous=False,
         type=Poll.QUIZ,
         correct_option_id=correct_index,
+        explanation=f'<a href="{message_url}">Yeah, {selected_member.user.first_name} actually said this...</a>',
+        explanation_parse_mode="HTML",
     )
 
     await wait_message.delete()
