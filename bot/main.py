@@ -29,6 +29,7 @@ async def post_init(application: Application) -> None:
             ("quote", "quote stuff"),
             ("unquote", "unquote stuff"),
             ("embarrass", "embarrass ppl"),
+            ("embarrass_semantic", "embarrass ppl with query"),
         ]
     )
 
@@ -199,7 +200,6 @@ async def base_embarrass(
 
     await context.bot.send_message(
         chat_id=chat_id,
-        reply_to_message_id=command_message_id,
         text=f'"{embarrass_quote.quote_text}"\n    -{mention}, ({parsed_post_date.year}), {chat_title}, <a href="{message_url}">Telegram</a>',
         parse_mode="HTML",
     )
