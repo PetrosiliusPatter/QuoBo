@@ -33,16 +33,16 @@ def get_admin_handler(db_handler: DBHandler):
         chat_id = update.effective_chat.id
         if str(chat_id) != ADMIN_CHAT_ID:
             await update.message.reply_text(
-                f"This chat ({chat_id}) is not authorized to use the admin panel."
+                f"This chat ({chat_id}) is not authorized to use the admin panel.\n"
                 "Please contact the bot owner to get access."
             )
             return None
 
         reply_keyboard = [[Trigger.BACKUP.value, Trigger.RESTORE.value]]
         await update.message.reply_text(
-            "Welcome to the QuoBo admin panel."
-            "Send /cancel to stop talking to me.\n\n"
-            "What would you like to do?\n"
+            "Welcome to the QuoBo admin panel.\n"
+            "Send /cancel to stop talking to me.\n"
+            "What would you like to do?\n\n"
             f'(Reply with "{Trigger.BACKUP.value}" or "{Trigger.RESTORE.value}")',
             reply_markup=ReplyKeyboardMarkup(
                 reply_keyboard,
@@ -64,7 +64,16 @@ def get_admin_handler(db_handler: DBHandler):
     async def action_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         trigger = update.message.text
         if trigger == Trigger.BACKUP.value:
-            await update.message.reply_text("Not implemented yet ehehehehe")
+            await update.message.reply_text("Alright, preparing dump now.")
+            quotes = db_handler.get_all_entries()
+            dump = "\n".join([quote.to_tsv() for quote in quotes])
+            await context.bot.send_document(
+                update.message.chat_id,
+                dump.encode("utf-8"),
+                filename="dump.tsv",
+            )
+            return ConversationHandler.END
+
         elif trigger == Trigger.RESTORE.value:
             await update.message.reply_text("Please send me the dump.")
             return RECEIVE_DUMP
@@ -99,7 +108,7 @@ def get_admin_handler(db_handler: DBHandler):
         reply_keyboard = [[Trigger.CONFIRM_RESTORE.value, Trigger.CANCEL_RESTORE.value]]
         await update.message.reply_text(
             f"Found {len(backup_unconfirmed)} quotes. Are you sure you want to restore them?\n"
-            "The current database will be overwritten!",
+            "The current database will be overwritten!\n\n"
             f'(Reply with "{Trigger.CONFIRM_RESTORE.value}" or "{Trigger.CANCEL_RESTORE.value}")',
             reply_markup=ReplyKeyboardMarkup(
                 reply_keyboard,

@@ -18,6 +18,18 @@ class Quote:
     post_date: str
     last_quoted: str
 
+    def to_tsv(self) -> str:
+        return "\t".join(
+            [
+                self.group_id,
+                str(self.message_id),
+                self.quote_text,
+                str(self.account_id),
+                self.post_date,
+                self.last_quoted,
+            ]
+        )
+
 
 @dataclass
 class QuoteWithId(Quote):
@@ -58,6 +70,19 @@ class DBHandler:
     def clear_db(self):
         self.client.delete_collection(collection_name="Quote")
         self.setup_schema()
+
+    def get_all_entries(self) -> list[QuoteWithId]:
+        out: list[Quote] = []
+        offset = "initial"
+        while offset:
+            curr_batch = self.client.scroll(
+                collection_name="Quote",
+                with_payload=True,
+                offset=None if offset == "initial" else offset,
+            )
+            offset = curr_batch[1]
+            out.extend([parse_db_res(x.id, x.payload) for x in curr_batch[0]])
+        return out
 
     def find_quote(self, account_id: int, quote_text: str) -> QuoteWithId | None:
         found_quote_points = self.client.scroll(
