@@ -1,10 +1,12 @@
 import logging
 import os
+import random
+from datetime import datetime
 from typing import Callable
 
 from admin_handler import get_admin_handler
 from db_handler import DBHandler, Quote
-from telegram import Update
+from telegram import ChatMember, Poll, Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 from utils import (
     datetime_to_rfc3339,
@@ -30,6 +32,7 @@ async def post_init(application: Application) -> None:
             ("unquote", "unquote stuff"),
             ("embarrass", "embarrass ppl"),
             ("embarrass_semantic", "embarrass ppl with query"),
+            ("quotequiz", "fun quiz"),
         ]
     )
 
@@ -251,6 +254,76 @@ async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+antispam_quotequiz: dict[str, datetime] = {}
+
+
+async def quotequiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    now = datetime.now()
+    last_quiz_time = antispam_quotequiz.get(chat_id)
+    if last_quiz_time and (now - last_quiz_time).total_seconds() < 120:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            reply_to_message_id=update.message.message_id,
+            text="Damn please don't spam this, alright??",
+        )
+        return
+
+    wait_message = await context.bot.send_message(
+        chat_id=chat_id,
+        reply_to_message_id=update.message.message_id,
+        text="Hmmmm lemme ponder...",
+    )
+    antispam_quotequiz[chat_id] = now
+
+    quoted_members = db_handler.get_all_quoted_user_ids()
+    members_in_chat: list[ChatMember] = []
+    for member_id in quoted_members:
+        try:
+            member_data = await context.bot.get_chat_member(chat_id, member_id)
+            members_in_chat.append(member_data)
+        except:
+            pass
+
+    if len(members_in_chat) < 2:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            reply_to_message_id=update.message.message_id,
+            text="At least two people need to have been quoted.",
+        )
+        await wait_message.delete()
+        return
+
+    selected_member = random.choice(members_in_chat)
+    selected_quote = db_handler.pseudo_random_quote_for_user(selected_member.user.id)
+    if not selected_quote:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            reply_to_message_id=update.message.message_id,
+            text="Something has gone substantially wrong. Oh well.",
+        )
+        await wait_message.delete()
+        return
+
+    other_members = [x for x in members_in_chat if x.user.id != selected_member.user.id]
+    other_options = random.sample(other_members, min(9, len(other_members)))
+
+    all_options = [selected_member] + other_options
+    random.shuffle(all_options)
+    correct_index = all_options.index(selected_member)
+
+    await context.bot.send_poll(
+        update.effective_chat.id,
+        f'Who would say this?\n\n"{selected_quote.quote_text}"',
+        [x.user.first_name for x in all_options],
+        is_anonymous=False,
+        type=Poll.QUIZ,
+        correct_option_id=correct_index,
+    )
+
+    await wait_message.delete()
+
+
 if __name__ == "__main__":
     db_handler = DBHandler()
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
@@ -268,6 +341,9 @@ if __name__ == "__main__":
         "embarrass_semantic", embarrass_semantic
     )
     application.add_handler(embarrass_semantic_handler)
+
+    quotequiz_handler = CommandHandler("quotequiz", quotequiz)
+    application.add_handler(quotequiz_handler)
 
     application.add_handler(get_admin_handler(db_handler=db_handler))
 

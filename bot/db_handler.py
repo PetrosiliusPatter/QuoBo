@@ -84,6 +84,11 @@ class DBHandler:
             out.extend([parse_db_res(x.id, x.payload) for x in curr_batch[0]])
         return out
 
+    def get_all_quoted_user_ids(self) -> list[int]:
+        all_quotes = self.get_all_entries()
+        all_user_ids = [x.account_id for x in all_quotes]
+        return list(set(all_user_ids))
+
     def find_quote(self, account_id: int, quote_text: str) -> QuoteWithId | None:
         found_quote_points = self.client.scroll(
             collection_name="Quote",
