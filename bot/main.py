@@ -28,11 +28,11 @@ db_handler: DBHandler | None
 async def post_init(application: Application) -> None:
     await application.bot.set_my_commands(
         [
-            ("quote", "quote stuff"),
-            ("unquote", "unquote stuff"),
-            ("embarrass", "embarrass ppl"),
-            ("embarrass_semantic", "embarrass ppl with query"),
-            ("quotequiz", "fun quiz"),
+            ("quote", "Quote stuff"),
+            ("unquote", "Unquote stuff"),
+            ("embarrass", "Embarrass a user"),
+            ("embarrass_semantic", "Embarrass a user semantically"),
+            ("quotequiz", "Fun quiz"),
         ]
     )
 
