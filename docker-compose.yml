@@ -6,6 +6,8 @@ services:
     volumes:
       - './qdrant_storage:/qdrant/storage:z'
     image: qdrant/qdrant
+    environment:
+      - QDRANT__TELEMETRY_DISABLED=true
   bot:
     build:
       context: .

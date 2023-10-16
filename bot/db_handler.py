@@ -65,7 +65,31 @@ class DBHandler:
             vectors_config=models.VectorParams(
                 size=vector_size, distance=models.Distance.COSINE, on_disk=True
             ),
+            hnsw_config={
+                "m": 32,
+                "ef_construct": 200,
+            },
         )
+
+    def simple_search(self, query: str) -> QuoteWithId:
+        query_embedding = self.text_embedder.embed([query])[0]
+
+        found_quote = self.client.search(
+            collection_name="Quote",
+            query_filter=models.Filter(
+                must_not=[
+                    models.FieldCondition(
+                        key="quote_text",
+                        match=models.MatchValue(value=query),
+                    )
+                ],
+            ),
+            search_params=models.SearchParams(hnsw_ef=32, exact=False),
+            query_vector=query_embedding.tolist(),
+            limit=1,
+        )[0]
+
+        return parse_db_res(found_quote.id, found_quote.payload)
 
     def clear_db(self):
         self.client.delete_collection(collection_name="Quote")

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Callable
 
 from admin_handler import get_admin_handler
-from db_handler import DBHandler, Quote
+from db_handler import DBHandler, Quote, QuoteWithId
 from telegram import ChatMember, Poll, Update
 from telegram.ext import Application, ApplicationBuilder, CommandHandler, ContextTypes
 from utils import (
@@ -121,6 +121,31 @@ async def quote(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def post_quote(
+    quote: QuoteWithId, chat_id: str, context: ContextTypes.DEFAULT_TYPE
+):
+    embarrass_uid = quote.account_id
+    embarrassed_member = await context.bot.get_chat_member(chat_id, embarrass_uid)
+    mention = f'<a href="tg://user?id={embarrass_uid}">{embarrassed_member.user.first_name}</a>'
+
+    chat_title = "Unknown Group"
+    try:
+        chat = await context.bot.get_chat(quote.group_id)
+        chat_title = chat.title
+    except:
+        pass
+
+    message_url = get_message_url(quote.group_id, quote.message_id)
+    parsed_post_date = rfc3339_to_datetime(quote.post_date)
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=f'"{quote.quote_text}"\n    -{mention}, ({parsed_post_date.year}), {chat_title}, <a href="{message_url}">Telegram</a>',
+        parse_mode="HTML",
+    )
+    return
+
+
 async def embarrass_pseudo_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     def quote_picker(account_id: int, _: str):
         return db_handler.pseudo_random_quote_for_user(account_id)
@@ -188,25 +213,7 @@ async def base_embarrass(
         )
         return
 
-    embarrassed_member = await context.bot.get_chat_member(chat_id, embarrass_uid)
-    mention = f'<a href="tg://user?id={embarrass_uid}">{embarrassed_member.user.first_name}</a>'
-
-    chat_title = "Unknown Group"
-    try:
-        chat = await context.bot.get_chat(embarrass_quote.group_id)
-        chat_title = chat.title
-    except:
-        pass
-
-    message_url = get_message_url(embarrass_quote.group_id, embarrass_quote.message_id)
-    parsed_post_date = rfc3339_to_datetime(embarrass_quote.post_date)
-
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=f'"{embarrass_quote.quote_text}"\n    -{mention}, ({parsed_post_date.year}), {chat_title}, <a href="{message_url}">Telegram</a>',
-        parse_mode="HTML",
-    )
-    return
+    await post_quote(embarrass_quote, chat_id, context)
 
 
 async def unquote(update: Update, context: ContextTypes.DEFAULT_TYPE):
