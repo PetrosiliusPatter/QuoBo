@@ -287,8 +287,11 @@ async def quotequiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     members_in_chat: list[ChatMember] = []
     for member_id in quoted_members:
         try:
-            member_data = await context.bot.get_chat_member(chat_id, member_id)
-            members_in_chat.append(member_data)
+            member_data = await context.bot.get_chat_member(
+                update.effective_chat.id, member_id
+            )
+            if member_data.status != "left":
+                members_in_chat.append(member_data)
         except:
             pass
 
